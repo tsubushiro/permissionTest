@@ -55,7 +55,9 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
             text = "Hello $name!",
             modifier = modifier
         )
-        AppScreen()
+        AppScreen(permission = Manifest.permission.CAMERA){
+            Text("Camera permission granted")
+        }
     }
 }
 
@@ -69,9 +71,13 @@ fun GreetingPreview() {
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun AppScreen() {
+fun AppScreen(
+    permission: String,
+    grantedContent: @Composable () -> Unit
+) {
     val context = LocalContext.current
-    val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
+//    val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
+    val permissionState = rememberPermissionState(permission)
 
     LaunchedEffect(permissionState.status) {
         Log.d("AppScreen", "LaunchedEffect:${permissionState.status.toString()}")
@@ -81,7 +87,7 @@ fun AppScreen() {
         }
     }
     when {
-        permissionState.status.isGranted -> Text("Granted!")
+        permissionState.status.isGranted -> grantedContent() // 権限取得成功
         permissionState.status is PermissionStatus.Denied -> {
             if(permissionState.status.shouldShowRationale) {
                 PermissionRationaleDialog {
@@ -100,6 +106,9 @@ fun AppScreen() {
                     }
                 }
             }
+        }
+        else -> SideEffect {
+            permissionState.launchPermissionRequest()
         }
     }
 }
