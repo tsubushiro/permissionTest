@@ -1,6 +1,7 @@
 package com.tsubushiro.permissiontest
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.PermissionStatus
@@ -25,6 +27,8 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.tsubushiro.permissiontest.ui.theme.PermissionTestTheme
+import android.net.Uri
+import android.provider.Settings
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,26 +70,36 @@ fun GreetingPreview() {
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AppScreen() {
+    val context = LocalContext.current
     val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
-    LaunchedEffect(Unit) {
+
+    LaunchedEffect(permissionState.status) {
         Log.d("AppScreen", "LaunchedEffect:${permissionState.status.toString()}")
-    }
-    when {
-        !permissionState.status.isGranted && !permissionState.status.shouldShowRationale ->
-            LaunchedEffect(Unit) {permissionState.launchPermissionRequest()}
-        permissionState.status.isGranted -> Text("Granted!")
-        permissionState.status is PermissionStatus.Denied ->
-            Column {
-                Text("Denied...Please request again.")
-                TextButton(onClick = { permissionState.launchPermissionRequest() }) {
-                    Text("Request")
-                }
-            }
-        permissionState.status.shouldShowRationale -> PermissionRationaleDialog {
+        if(!permissionState.status.isGranted && !permissionState.status.shouldShowRationale)
+        {
             permissionState.launchPermissionRequest()
         }
-        else -> SideEffect {
-            permissionState.launchPermissionRequest()
+    }
+    when {
+        permissionState.status.isGranted -> Text("Granted!")
+        permissionState.status is PermissionStatus.Denied -> {
+            if(permissionState.status.shouldShowRationale) {
+                PermissionRationaleDialog {
+                    permissionState.launchPermissionRequest()
+                }
+            }else{
+                Column {
+                    Text("Denied...Please request again.")
+                    TextButton(onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    }) {
+                        Text("Request")
+                    }
+                }
+            }
         }
     }
 }
