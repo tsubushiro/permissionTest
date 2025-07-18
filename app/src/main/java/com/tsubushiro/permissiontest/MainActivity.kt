@@ -20,6 +20,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.PermissionStatus
@@ -30,7 +32,10 @@ import com.tsubushiro.permissiontest.ui.theme.PermissionTestTheme
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +89,7 @@ fun PermissionRequiredContent(
 ) {
     val context = LocalContext.current
     val permissionState = rememberPermissionState(permission)
+    var showRationaleDialog by remember { mutableStateOf(false) }
 
     // 権限ごとのRationaleメッセージとDeniedメッセージを取得
     val rationaleText = getRationaleText(permission)
@@ -100,12 +106,20 @@ fun PermissionRequiredContent(
         permissionState.status.isGranted -> grantedContent() // 権限取得成功
         permissionState.status is PermissionStatus.Denied -> {
             if(permissionState.status.shouldShowRationale) {
-                PermissionRationaleDialog(
-                    rationaleText = rationaleText,
-                    onDialogResult = {
-                        permissionState.launchPermissionRequest()
-                    }
-                )
+                // showDialogを制御
+                if (!showRationaleDialog) {
+                    showRationaleDialog = true
+                    PermissionRationaleDialog(
+                        rationaleText = rationaleText,
+                        onConfirm = {
+                            showRationaleDialog = false
+                            permissionState.launchPermissionRequest()
+                        },
+                        onDismiss = {
+                            showRationaleDialog = false
+                        }
+                    )
+                }
             } else {
                 Column (
                     modifier = Modifier.fillMaxSize(),
@@ -153,15 +167,18 @@ fun getDeniedText(permission: String): String = when(permission) {
 @Composable
 fun PermissionRationaleDialog(
     rationaleText: String,
-    onDialogResult: () -> Unit
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("権限が必要です") },
         text = { Text(rationaleText) },
-        onDismissRequest = {},
         confirmButton = {
-            TextButton(onClick = onDialogResult) {
-                Text("許可する")
-            }
+            TextButton(onClick = onConfirm) { Text("許可する") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("あとで") }
         }
     )
 }
